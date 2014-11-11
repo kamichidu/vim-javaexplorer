@@ -110,10 +110,10 @@ function! s:trans_tree_to_lines(node, ...)
     let padding= repeat(' ', get(a:000, 0, 0) * &shiftwidth)
 
     if a:node.type ==# 'file'
-        return [padding . s:indicators[a:node.type][a:node.state] . a:node.text]
+        return [padding . s:abbr(a:node)]
     elseif a:node.type ==# 'package' || a:node.type ==# 'root'
         let lines= []
-        let lines+= [padding . s:indicators[a:node.type][a:node.state] . a:node.text]
+        let lines+= [padding . s:abbr(a:node)]
         for child in a:node.children
             let lines+= s:trans_tree_to_lines(child, get(a:000, 0, 0) + 1)
         endfor
@@ -121,6 +121,10 @@ function! s:trans_tree_to_lines(node, ...)
     else
         return []
     endif
+endfunction
+
+function! s:abbr(node)
+    return s:indicators[a:node.type][a:node.state] . ' ' . a:node.text
 endfunction
 
 function! s:glob_nodes(path)
