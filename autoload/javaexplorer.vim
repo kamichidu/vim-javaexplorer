@@ -128,7 +128,7 @@ function! s:glob_nodes(path)
     try
         execute 'lcd' a:path
 
-        let files= s:files('.')
+        let files= javaexplorer#file_system#files('.')
         let items= {}
         for file in files
             let package= tr(fnamemodify(file, ':.:h'), '\/', '..')
@@ -154,22 +154,6 @@ function! s:glob_nodes(path)
             \}]
         endfor
         return nodes
-    finally
-        execute 'lcd' save_cwd
-    endtry
-endfunction
-
-function! s:files(path, ...)
-    let save_cwd= getcwd()
-    try
-        execute 'lcd' a:path
-
-        let items= split(glob('*'), "\n")
-        let files= map(filter(copy(items), '!isdirectory(v:val)'), 'fnamemodify(v:val, ":p")')
-        for dir in filter(copy(items), 'isdirectory(v:val)')
-            let files+= s:files(dir)
-        endfor
-        return files
     finally
         execute 'lcd' save_cwd
     endtry
