@@ -5,13 +5,13 @@ let s:V= vital#of('javaexplorer')
 let s:P= s:V.import('Process')
 unlet s:V
 
-let s:sdir= expand('<sfile>:p:h')
+let s:sdir= tr(expand('<sfile>:p:h'), '\', '/') . '/'
 
 function! s:ilua_enabled()
     let res= {}
     lua << ...
     local ok= pcall(function()
-        package.path= package.path .. ';' .. vim.eval('s:sdir') .. '/?.lua'
+        package.path= package.path .. ';' .. vim.eval('s:sdir') .. '?.lua'
 
         require 'file_system'
     end)
@@ -28,7 +28,17 @@ function! s:elua_enabled()
 endfunction
 let s:elua_enabled= executable('lua') ? s:elua_enabled() : 0
 
-function! javaexplorer#file_system#files(path)
+function! javaexplorer#file_system#files(path, ...)
+    let opts= get(a:000, 0, {})
+
+    if get(opts, 'if_lua', 0)
+        return s:files_ilua(a:path)
+    elseif get(opts, 'external_lua', 0)
+        return s:files_elua(a:path)
+    elseif get(opts, 'pure_vim', 0)
+        return s:files_vim(a:path)
+    endif
+
     if s:ilua_enabled
         return s:files_ilua(a:path)
     elseif s:elua_enabled
@@ -55,39 +65,41 @@ function! s:files_elua(path)
     let luafile= tempname()
     let outfile= tempname()
     let script= [
-    \   printf('package.path= package.path .. ";" .. "%s" .. "/?.lua"', s:sdir),
+    \   printf('package.path= package.path .. ";" .. "%s" .. "?.lua"', s:sdir),
     \   'local fs= require "file_system"',
     \   '',
-    \   printf('local out= io.open("%s", "w")', outfile),
-    \   printf('for _, file in ipairs(fs.files("%s")) do', a:path),
+    \   printf('local out= io.open("%s", "w")', tr(outfile, '\', '/')),
+    \   printf('for _, file in ipairs(fs.files("%s")) do', tr(a:path, '\', '/')),
     \   '    out:write(file .. "\n")',
+    \   '    out:flush()',
     \   'end',
+    \   'out:flush()',
     \   'out:close()',
     \]
     call writefile(script, luafile)
     let procout= s:P.system(printf('lua "%s"', luafile))
     if procout !=# ''
-        throw procout
+        throw 'javaexplorer#file_system: ' . procout
     endif
     return readfile(outfile)
 endfunction
 
 function! s:files_vim(path)
+    let files= []
+    let entries= split(globpath(a:path, '*'), "\n")
+    for entry in entries
+        if isdirectory(entry)
+            let files+= s:files_vim(entry)
+        else
+            let files+= [entry]
+        endif
+    endfor
+
     let save_cwd= getcwd()
     try
         execute 'lcd' a:path
 
-        let files= []
-        let entries= split(glob('*'), "\n")
-        for entry in entries
-            let filename= a:path . '/' . entry
-            if isdirectory(filename)
-                let files+= s:files_vim(filename)
-            else
-                let files+= [filename]
-            endif
-        endfor
-        return files
+        return map(files, '"./" . tr(fnamemodify(v:val, ":."), "\\", "/")')
     finally
         execute 'lcd' save_cwd
     endtry

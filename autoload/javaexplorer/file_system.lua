@@ -3,10 +3,14 @@ local lfs= require 'lfs'
 local file_system= {}
 
 function file_system.files(path)
+    if not path:find('/$') then
+        path= path .. '/'
+    end
+
     local files= {}
     for entry in lfs.dir(path) do
         if not (entry == '.' or entry == '..') then
-            local filename= path .. '/' .. entry
+            local filename= path .. entry
             local mode= lfs.attributes(filename, 'mode')
 
             if mode == 'directory' then
